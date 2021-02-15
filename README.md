@@ -50,11 +50,21 @@
   此方法的意义：多人分工标注时，将不同人标注的数据合并(例如没人标一类的情况下)
   输入:newdataset-需要合并的新数据集<br>
        olddataset-需要合并的旧数据集，合并后数据存放在此数据集中<br>
-  ## _Resize(self, newsize, annodir=None, imgdir=None):
-  resize数据集中全部图像，并修改标注信息<br>
+  ## _Resize(self, newsize=None, oldcls=None, newcls=None, annodir=None, imgdir=None):
+  resize数据集中全部图像，可选择修改标注信息label名称或者图像尺寸与对应的xml的box框<br>
   输入:newsize-rezise的尺寸，元组，(宽, 高)<br>
+       oldcls-旧的label名称<br>
+       newcls-新的label名称，运行一次只能修改一种label名噢<br>
        annodir-标注xml文件目录<br>
        imgdir-图像文件目录<br>
+  ## rename_datasets_index(self,begin, total_len = 6)
+  重新改变标注文件xml与图像文件jpg的编号名字<br>
+  输入：begin:编号重哪个数字开始？<br>
+        total_len:编号一共有多少位数？<br>
+        改变地方：每个xml与jpg的文件名以及xml文件中的filename项<br>
+
+
+
  # --VOC数据集xml文件操作函数库
   ## _parseannotation(annofile):
   分析单个xml文件标注信息，<br>

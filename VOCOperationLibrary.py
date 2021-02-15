@@ -1,5 +1,5 @@
 """
-File:VOCOperationLibrary.py
+File:VOCOperationLibrary.py VOC数据集中单个xml文件操作函数库
 """
 
 import sys

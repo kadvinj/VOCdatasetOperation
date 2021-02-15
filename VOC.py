@@ -1,5 +1,5 @@
 """
-File:VOC.py
+File:VOC.py VOC数据集类，操作整个数据集
 """
 
 import sys
@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import random
 import shutil
 import VOCOperationLibrary as vol
+import xml.dom.minidom
 
 class VOC(object):
     def __init__(self, dataset_anno, dataset_img=None, num_class=None, datasetdir=None):
@@ -21,8 +22,9 @@ class VOC(object):
         self.dataset_img = dataset_img
         self.num_class = num_class
         self.dirname = os.path.dirname(self.dataset_anno)
-        self.listanno = self._listanno()
-
+        self.listanno = self._listanno(dataset_anno)
+        self.listimg = self._listanno(dataset_img)
+        
     def _listanno(self, annodir=None):
         """return the list of all above of annotation file"""
         if annodir == None:
@@ -191,7 +193,6 @@ class VOC(object):
         plt.draw()
         plt.show()
 
-
     def _Mergeannotation(self, newdataset, olddataset=None):
         """
         Merge two dataset anntation information.
@@ -211,7 +212,7 @@ class VOC(object):
             else:
                 shutil.copy(newdataset+anno, olddataset+anno)
 
-    def _Resize(self, newsize, annodir=None, imgdir=None):
+    def _Resize(self, newsize=None, oldcls=None, newcls=None, annodir=None, imgdir=None):
         """
         Resize the dataset, include resize all the image into newsize,
         and correct the annotation information.
@@ -233,12 +234,13 @@ class VOC(object):
         total = len(annolist)
         for num, f in enumerate(annolist):
             anno_path = os.path.join(annodir, f)
-            img_path = os.path.join(imgdir, f)[:-4] + '.jpg'
-            img = Image.open(img_path)
-            img = img.resize(newsize)
-            img.save(img_path, 'jpeg', quality=95)
-            img.close()
-            vol._changeone(anno_path, None, None, newsize)
+            if newsize != None:
+                img_path = os.path.join(imgdir, f)[:-4] + '.jpg'
+                img = Image.open(img_path)
+                img = img.resize(newsize)
+                img.save(img_path, 'jpeg', quality=95)
+                img.close()
+            vol._changeone(anno_path, oldcls, newcls, newsize)
             process = int(num*100 / total)
             s1 = "\r%d%%[%s%s]"%(process,"*"*process," "*(100-process))
             s2 = "\r%d%%[%s]"%(100,"*"*100)
@@ -350,15 +352,74 @@ class VOC(object):
         print(xml_files)
         self._Copy(xml_files, annodir, imgdir, save_xml_path, save_img_path)
 
-v = VOC('F:/数据集/20190122输电线路主要缺陷优化数据集/Annotations/', 
-       'F:/数据集/20190122输电线路主要缺陷优化数据集/JPEGImages/')
-#print(v._ParseAnnos())
-#v._Crop('F:/数据集/JPEGImages/', 'F:/数据集/crops/')
-#v._DelAnnotations(['123', '234'])
-#v._DisplayDirectObjec()
-#size = (512, 512)
-#v._Resize(size)
-#v._Mergeannotation('C:/Users/91279/Desktop/xml/', 'F:/xml/')
-#v._DelAnnotations(['123'])
-#cls = ['shockproof hammer deformation', 'shockproof hammer intersection', 'grading ring damage', 'shielded ring corrosion']
-#v._FindandCopy(cls, 'F:/数据集/20190122输电线路主要缺陷优化数据集/aaaa/', 'F:/数据集/20190122输电线路主要缺陷优化数据集/bbbb/')
+    def rename_datasets_index(self,begin, total_len = 6):
+        """
+        rename index of .xml and .jpg 
+        begin: Which number should I start with?
+        total_len: How many digits does the index have?
+        """
+        assert len(self.listanno) == len(self.listimg),"# xml文件数目必须与img数目相等"
+        index = begin
+        # 将文件排好顺序
+        listanno_sorted = sorted(self.listanno)
+        for item in listanno_sorted:
+            """
+            对xml与jpg的编号进行更改
+            """
+            # 计算前面要加几个0
+            nZeros = total_len - len(str(index))
+            # 转换后编号
+            dstIndex = nZeros*str(0) + str(index)
+            
+            # 设置xml的路径
+            srcAnno = os.path.join(os.path.abspath(self.dataset_anno),item)
+            dstAnno = os.path.join(os.path.abspath(self.dataset_anno), dstIndex+'.xml')
+            
+            # 同时按xml名字的编号设置jpg的路径
+            srcImg = os.path.join(os.path.abspath(self.dataset_img),item[:-4] + '.jpg')
+            dstImg = os.path.join(os.path.abspath(self.dataset_img), dstIndex+'.jpg')
+            # 更改文件名
+            os.rename(srcAnno,dstAnno)
+            os.rename(srcImg,dstImg)
+            #没隔25次打印一下看看路径转换是否正确
+            if index % 25 == 0:
+                print('converting %s to %s ...' % (srcAnno, dstAnno))
+                print('converting %s to %s ...\n' % (srcImg, dstImg))
+
+            """
+            对xml文件里面的<filename>把原有的编号变成转换后的编号
+            """
+            dom = xml.dom.minidom.parse(dstAnno)
+            root = dom.documentElement
+            # 获取需要修改的参数
+            fileName = root.getElementsByTagName('filename')
+            # 修改参数
+            fileName[0].firstChild.data = "%s.jpg"%dstIndex
+            # 保存
+            with open(dstAnno,'w') as fh:
+                dom.writexml(fh)
+
+            # 下一张
+            index +=1
+        print ('Total %d was renamed & and begin index is %s, last index is %s .' % (len(listanno_sorted), str(begin), dstIndex))
+
+
+if __name__ == "__main__":
+        
+    v = VOC('/home/atom/Model/Datasets/VOCdatasetOperation/Annotations/', 
+        '/home/atom/Model/Datasets/VOCdatasetOperation/JPEGImages/')
+    #print(v._ParseAnnos()) 查看信息
+    #v._Crop('F:/数据集/JPEGImages/', 'F:/数据集/crops/')
+    # v._DelAnnotations(['bu_n', 'bu_y','sj_lf']) # 删除补货框
+    #v._DisplayDirectObjec()
+    #size = (512, 512)
+    # v._Resize(size)
+    # v._Resize(oldcls='sj_gt', newcls='gt')# 可以变换尺寸或者类别名
+
+    # v.rename_datasets_index(535,6)
+
+
+    #v._Mergeannotation('C:/Users/91279/Desktop/xml/', 'F:/xml/')
+    #v._DelAnnotations(['123'])
+    #cls = ['shockproof hammer deformation', 'shockproof hammer intersection', 'grading ring damage', 'shielded ring corrosion']
+    #v._FindandCopy(cls, 'F:/数据集/20190122输电线路主要缺陷优化数据集/aaaa/', 'F:/数据集/20190122输电线路主要缺陷优化数据集/bbbb/')
